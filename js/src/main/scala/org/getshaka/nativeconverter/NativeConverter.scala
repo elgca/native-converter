@@ -1,8 +1,8 @@
 package org.getshaka.nativeconverter
 
-import scala.annotation.implicitNotFound
+import scala.annotation.{experimental, implicitNotFound, nowarn}
 import scala.collection.{Iterable, Map, Seq, Set, immutable, mutable}
-import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap, HashSet, Builder}
+import scala.collection.mutable.{ArrayBuffer, Buffer, Builder, HashMap, HashSet}
 import scala.collection.immutable.List
 import scala.deriving.Mirror
 import scala.compiletime.{constValue, constValueTuple, erasedValue, error, summonAll, summonFrom, summonInline}
@@ -525,6 +525,7 @@ object NativeConverter:
 
   /** Derive a NativeConverter for type T. This method is called by the compiler automatically when adding `derives NativeConverter` on a class. You can also use it to derive given instances anywhere, which is useful if Cross-Building a Scala.js project: <br> `given NativeConverter[User] = NativeConverter.derived` <br> Only Sum and Product types are supported
     */
+  @nowarn
   inline given derived[A](using m: Mirror.Of[A]): NativeConverter[A] =
     type Mets = m.MirroredElemTypes
     type Mels = m.MirroredElemLabels
@@ -542,6 +543,22 @@ object NativeConverter:
             nativeToProduct[A, Mets, Mels](p, resArr, ps, jsDict)
 
       case s: Mirror.SumOf[A] => adtSumConverter[A](s)
+
+  @nowarn
+  @experimental
+  inline given namedTuple[N <: Tuple, V <: Tuple](using n: Mirror.ProductOf[N], v: Mirror.ProductOf[V]): NativeConverter[NamedTuple.NamedTuple[N, V]] = {
+    type Mets = v.MirroredElemTypes
+    type Mels = n.MirroredElemTypes
+    new NativeConverter[NamedTuple.NamedTuple[N, V]]:
+      extension (a: NamedTuple.NamedTuple[N, V])
+        def toNative: js.Any =
+          productToNative[Mets, Mels](a.asInstanceOf[Product])
+
+      def fromNative(ps: ParseState): NamedTuple.NamedTuple[N, V] =
+        val jsDict = asJSDict(ps)
+        val resArr = Array.ofDim[Any](constValue[Tuple.Size[V]])
+        nativeToProduct[V, Mets, Mels](v, resArr, ps, jsDict).asInstanceOf[NamedTuple.NamedTuple[N, V]]
+  }
 
   private inline def productToNative[Mets, Mels](
       p: Product,
@@ -583,6 +600,7 @@ object NativeConverter:
         resArr(i) = nc.fromNative(ps.atKey(key, elementJs))
         nativeToProduct[A, metsTail, melsTail](mirror, resArr, ps, jsDict, i + 1)
 
+  @nowarn
   private inline def adtSumConverter[A](
       m: Mirror.SumOf[A]
   ): NativeConverter[A] =
