@@ -8,4 +8,4 @@ extension [A](base: TypedNative[A]) inline def unwrap(using a: NativeConverter[A
 
 opaque type TypedJson[+A] <: String = String
 extension [A](base: A) inline def toTypedJson(using NativeConverter[A]): TypedJson[A] = base.toJson
-extension [A](base: TypedJson[A]) inline def unwrap(using a: NativeConverter[A]): A = a.fromNative(base)
+extension [A](base: TypedJson[A]) inline def unwrap(using a: NativeConverter[A]): A = a.fromJson(base)
